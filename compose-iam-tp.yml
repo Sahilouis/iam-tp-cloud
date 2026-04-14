@@ -1,0 +1,47 @@
+version: '3.8'
+
+services:
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:23.0
+    container_name: corpcloud-iam
+    command: start-dev --import-realm
+    environment:
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+      KC_HTTP_PORT: 8080
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./keycloak/corpcloud-realm.json:/opt/keycloak/data/import/corpcloud-realm.json
+    networks:
+      - corpcloud-net
+
+  api:
+    image: python:3.11-slim
+    container_name: corpcloud-api
+    working_dir: /app
+    volumes:
+      - ./api:/app
+    command: >
+      sh -c "pip install flask python-jose requests -q && python app.py"
+    ports:
+      - "5000:5000"
+    environment:
+      KEYCLOAK_URL: http://keycloak:8080
+      REALM: corpcloud
+    depends_on:
+      - keycloak
+    networks:
+      - corpcloud-net
+
+  attacker:
+    image: kalilinux/kali-rolling
+    container_name: attacker
+    command: sleep infinity
+    networks:
+      - corpcloud-net
+
+networks:
+  corpcloud-net:
+    driver: bridge
