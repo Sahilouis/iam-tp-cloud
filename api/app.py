@@ -1,34 +1,35 @@
 from flask import Flask, request, jsonify
-import os, requests
+import base64, json
 
 app = Flask(__name__)
-KC = os.getenv("KEYCLOAK_URL", "http://keycloak:8080")
-REALM = os.getenv("REALM", "corpcloud")
 
-def verify_token(token):
-    r = requests.get(f"{KC}/realms/{REALM}/protocol/openid-connect/userinfo",
-                     headers={"Authorization": f"Bearer {token}"})
-    return r.json() if r.status_code == 200 else None
+def decode_token(token):
+    try:
+        payload = token.split('.')[1]
+        payload += '=' * (4 - len(payload) % 4)
+        return json.loads(base64.b64decode(payload))
+    except:
+        return None
 
 @app.route("/api/public")
 def public():
-    return jsonify({"message": "Endpoint public — accessible sans authentification"})
+    return jsonify({"message": "Endpoint public"})
 
 @app.route("/api/profile")
 def profile():
     token = request.headers.get("Authorization", "").replace("Bearer ", "")
-    user = verify_token(token)
+    user = decode_token(token)
     if not user:
-        return jsonify({"error": "Non autorisé"}), 401
-    return jsonify({"message": "Profil utilisateur", "user": user})
+        return jsonify({"error": "Non autorise"}), 401
+    return jsonify({"user": user})
 
 @app.route("/api/secrets")
 def secrets():
     token = request.headers.get("Authorization", "").replace("Bearer ", "")
-    user = verify_token(token)
+    user = decode_token(token)
     if not user:
-        return jsonify({"error": "Non autorisé"}), 401
-    return jsonify({
-        "message": "Secrets de l'application",
-        "db_password": "prod-db-P@ssw0rd!",
-        "api_key": "sk-prod-X
+        return jsonify({"error": "Non autorise"}), 401
+    return jsonify({"db_password": "prod-db-Password123", "svc_account": "svc-account", "svc_secret": "svc-acc-secret-XkP92mQz"})
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=5000, debug=True)
